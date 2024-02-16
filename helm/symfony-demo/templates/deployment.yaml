@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "symfony-demo.fullname" . }}
+  labels:
+    {{- include "symfony-demo.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "symfony-demo.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "symfony-demo.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configMap.yaml") . | sha256sum }}
+        secret/config: {{ include (print $.Template.BasePath "/secretProviderClass.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      imagePullSecrets:
+        - name: {{ .Values.containers.imagePullSecrets }}
+      volumes:
+        - name: fpm-socket
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: {{ include "symfony-demo.fullname" . }}
+        - name: secret-symfony
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "symfony-demo.fullname" . }}
+      containers:
+        - name: nginx
+          image: "{{ .Values.containers.registryBaseUrl }}/symfony_nginx:{{ .Values.containers.nginxTag }}"
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - mountPath: /var/run/php/
+              name: fpm-socket
+          livenessProbe:
+            httpGet:
+              port: 80
+              path: /fr
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 5
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              port: 80
+              path: /fr
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 1
+            successThreshold: 2
+        - name: php
+          image: "{{ .Values.containers.registryBaseUrl }}/symfony_php:{{ .Values.containers.phpTag }}"
+          envFrom:
+            - configMapRef:
+                name: {{ include "symfony-demo.fullname" . }}
+            - secretRef:
+                name: {{ include "symfony-demo.fullname" . }}
+          volumeMounts:
+            - mountPath: /var/run/php/
+              name: fpm-socket
+            - mountPath: /secrets
+              name: secret-symfony
+          livenessProbe:
+            exec:
+              command:
+                - docker-healthcheck
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 5
+            successThreshold: 1
+          readinessProbe:
+            exec:
+              command:
+                - docker-healthcheck
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 1
+            successThreshold: 2

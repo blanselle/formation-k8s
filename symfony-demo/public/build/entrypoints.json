@@ -1,0 +1,38 @@
+{
+  "entrypoints": {
+    "app": {
+      "js": [
+        "/build/runtime.c56be18b.js",
+        "/build/608.626b1a4f.js",
+        "/build/691.00474683.js",
+        "/build/app.d0240a16.js"
+      ],
+      "css": [
+        "/build/691.5d22d6da.css",
+        "/build/app.c5f58d6f.css"
+      ]
+    },
+    "admin": {
+      "js": [
+        "/build/runtime.c56be18b.js",
+        "/build/608.626b1a4f.js",
+        "/build/673.a8a6034c.js",
+        "/build/admin.2e00d7c6.js"
+      ],
+      "css": [
+        "/build/admin.2b1a6c83.css"
+      ]
+    }
+  },
+  "integrity": {
+    "/build/runtime.c56be18b.js": "sha384-Cdl61iQY709LV5xk4fjbcXyComo/jpLrd2Q4lyCXTBFRFq4AqQsmJkF6DyKpj9tr",
+    "/build/608.626b1a4f.js": "sha384-E2b89OD+49Lsk6EXg/KCDPqwEd43B8Qjc8SdqMEdGdS7LQyDTw0KXV/PjfA1/njZ",
+    "/build/691.00474683.js": "sha384-IebcSy563+wytSYXkK+fxDGaR3Q7j+zmBrvadQzX3tHevDTxSKFhv29BMJkywEAS",
+    "/build/app.d0240a16.js": "sha384-4BU8VUhz6QMUbpucsazGKDfz6MYAEhLm/BcTFKYqnSr2iuhPJbnv8JDWbray+BYU",
+    "/build/691.5d22d6da.css": "sha384-Aj2DvjS/WxFSIf9uLVnmH9Dw6pixHWGKWrOnGxgr2eRW82BIPnXYihtUQyUMQmGm",
+    "/build/app.c5f58d6f.css": "sha384-eix1YtX/gerBqZXPGsQgWRRLic+Sh45PZhcoOx6y/GOnXvR3RxMTmv0vs3ITbfzo",
+    "/build/673.a8a6034c.js": "sha384-hsruohAAUG973CEl8FPGEzptQtqKi2m4i5/f7AK0WdjVA2HABqo4PDIl5F0ADoI2",
+    "/build/admin.2e00d7c6.js": "sha384-YdDZ6+TI8dzJ9EiFd0aE8XviYeBOqUkEs1AL2l+Xxwyr8bU/KuUdxdGefgKpJIYq",
+    "/build/admin.2b1a6c83.css": "sha384-ikQwASTRPK0sjWtW//EXsUjqkjNxc2Yndtt0m5a/I/qE+qEoikXP5ailZKDaqtN9"
+  }
+}

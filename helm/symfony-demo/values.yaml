@@ -1,0 +1,56 @@
+global:
+  root_domain: formation-k8s.widop.com
+
+ingress:
+  hostname: symfony-tim
+  alb_group_name: formation-k8s
+
+replicaCount: 1
+
+serviceAccountName: secrets-store-csi-sa
+
+containers:
+  registryBaseUrl: registry.gitlab.com/widop/internal/formation-k8s/formation-k8s-eks
+  imagePullSecrets: secret-gitlab
+  phpTag: 1.9-mysql
+  nginxTag: 1.1
+
+secret:
+  awsArn: symfony-mysql
+  vars:
+    - DATABASE_URL
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nameOverride: ""
+
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+resources: {}
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+

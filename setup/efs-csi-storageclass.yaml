@@ -1,0 +1,15 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: storageclass-efs
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+  fileSystemId: fs-021d2949ffbf7ded3
+  directoryPerms: "700"
+  uid: "0" # root because EFS (NFS) doesn't support ACLs
+  gid: "0" # root because EFS (NFS) doesn't support ACLs
+  basePath: "/dynamic_provisioning" # optional
+  subPathPattern: "${.PVC.namespace}/${.PVC.name}" # optional
+  ensureUniqueDirectory: "false" # optional
+  reuseAccessPoint: "false" # optional

@@ -1,0 +1,189 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: secrets-store-csi-driver-provider-aws
+  name: secrets-store-csi-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::562414170838:role/EKS_SSM_CSI_DriverRole
+
+---
+
+apiVersion: v1
+data:
+  .dockerconfigjson: FIXME
+kind: Secret
+metadata:
+  name: secret-gitlab
+type: kubernetes.io/dockerconfigjson
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-symfony
+data:
+  APP_ENV: "prod"
+  APP_DEBUG: "0"
+
+---
+
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: secretclass-symfony-aws
+spec:
+  provider: aws
+  parameters:
+    objects: |
+      - objectName: "symfony-mysql"
+        objectType: "secretsmanager"
+        jmesPath:
+          - path: DATABASE_URL
+            objectAlias: "database-url"
+  # still need to map each key-value manually https://github.com/kubernetes-sigs/secrets-store-csi-driver/issues/529
+  secretObjects:
+    - secretName: secret-symfony-aws
+      type: Opaque
+      data:
+        - objectName: "database-url"
+          key: "DATABASE_URL"
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: symfony-sqlite
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: storageclass-efs
+  resources:
+    requests:
+      storage: 100Mi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-symfony-sqlite
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-symfony-sqlite
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app-symfony-sqlite
+    spec:
+      serviceAccountName: secrets-store-csi-sa
+      imagePullSecrets:
+        - name: secret-gitlab
+      volumes:
+        - name: fpm-socket
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: configmap-symfony
+        - name: secret-symfony
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "secretclass-symfony-aws"
+      containers:
+        - name: nginx
+          image: registry.gitlab.com/widop/internal/formation-k8s/formation-k8s-eks/symfony_nginx:1.1
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - mountPath: /var/run/php/
+              name: fpm-socket
+          livenessProbe:
+            httpGet:
+              port: 80
+              path: /fr
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 5
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              port: 80
+              path: /fr
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 1
+            successThreshold: 2
+        - name: php
+          image: registry.gitlab.com/widop/internal/formation-k8s/formation-k8s-eks/symfony_php:1.9-mysql
+          envFrom:
+            - configMapRef:
+                name: configmap-symfony
+            - secretRef:
+                name: secret-symfony-aws
+          volumeMounts:
+            - mountPath: /var/run/php/
+              name: fpm-socket
+            - mountPath: /secrets
+              name: secret-symfony
+          livenessProbe:
+            exec:
+              command:
+                - docker-healthcheck
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 5
+            successThreshold: 1
+          readinessProbe:
+            exec:
+              command:
+                - docker-healthcheck
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 1
+            successThreshold: 2
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-symfony-sqlite
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: app-symfony-sqlite
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-symfony-sqlite
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/group.name: formation-k8s
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+spec:
+  ingressClassName: alb
+  rules:
+    - host: symfony-tim.formation-k8s.widop.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: service-symfony-sqlite
+                port:
+                  number: 80

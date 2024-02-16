@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "symfony-demo.fullname" . }}
+  labels:
+    {{- include "symfony-demo.labels" . | nindent 4 }}
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    {{- include "symfony-demo.selectorLabels" . | nindent 4 }}

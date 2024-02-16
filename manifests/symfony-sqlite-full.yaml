@@ -1,0 +1,170 @@
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: symfony-sqlite
+
+---
+
+apiVersion: v1
+data:
+  .dockerconfigjson: FIXME
+kind: Secret
+metadata:
+  name: secret-gitlab
+  namespace: symfony-sqlite
+type: kubernetes.io/dockerconfigjson
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: symfony-sqlite
+  name: symfony-sqlite
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: storageclass-efs
+  resources:
+    requests:
+      storage: 100Mi
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: symfony-sqlite
+  name: symfony-sessions
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: storageclass-efs
+  resources:
+    requests:
+      storage: 100Mi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: symfony-sqlite
+  name: deployment-symfony-sqlite
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-symfony-sqlite
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app-symfony-sqlite
+    spec:
+      imagePullSecrets:
+        - name: secret-gitlab
+      volumes:
+        - name: fpm-socket
+          emptyDir: {}
+        - name: sqlite
+          persistentVolumeClaim:
+            claimName: symfony-sqlite
+        - name: sessions
+          persistentVolumeClaim:
+            claimName: symfony-sessions
+      containers:
+        - name: nginx
+          image: registry.gitlab.com/widop/internal/formation-k8s/formation-k8s-eks/symfony_nginx:1.1
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: fpm-socket
+              mountPath: /var/run/php/
+          livenessProbe:
+            httpGet:
+              port: 80
+              path: /fr
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 10
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              port: 80
+              path: /fr
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+            successThreshold: 2
+        - name: php
+          image: registry.gitlab.com/widop/internal/formation-k8s/formation-k8s-eks/symfony_php:1.8
+          volumeMounts:
+            - name: fpm-socket
+              mountPath: /var/run/php/
+            - name: sqlite
+              mountPath: /srv/app/data
+            - name: sessions
+              mountPath: /srv/app/var/sessions
+          livenessProbe:
+            exec:
+              command:
+                - docker-healthcheck
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 10
+            successThreshold: 1
+          readinessProbe:
+            exec:
+              command:
+                - docker-healthcheck
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+            successThreshold: 2
+          env:
+            - name: APP_ENV
+              value: prod
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: symfony-sqlite
+  name: service-symfony-sqlite
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: app-symfony-sqlite
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: symfony-sqlite
+  name: ingress-symfony-sqlite
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/group.name: formation-k8s
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+spec:
+  ingressClassName: alb
+  rules:
+    - host: symfony-sqlite.formation-k8s.widop.com
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: service-symfony-sqlite
+              port:
+                number: 80

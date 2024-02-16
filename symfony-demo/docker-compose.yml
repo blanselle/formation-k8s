@@ -1,0 +1,36 @@
+version: "3.4"
+
+services:
+  php:
+    image: registry.gitlab.com/widop/internal/formation-k8s/formation-k8s-eks/symfony_php:1.8
+    build:
+      context: .
+      target: symfony_php
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
+    restart: unless-stopped
+    volumes:
+      - php_socket:/var/run/php
+
+  nginx:
+    image: registry.gitlab.com/widop/internal/formation-k8s/formation-k8s-eks/symfony_nginx:1.1
+    build:
+      context: .
+      target: symfony_nginx
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
+    depends_on:
+      - php
+    restart: unless-stopped
+    volumes:
+      - php_socket:/var/run/php
+    ports:
+      # HTTP
+      - target: 80
+        published: ${HTTP_PORT:-80}
+        protocol: tcp
+
+volumes:
+  php_socket:
